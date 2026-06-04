@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テスト予測AI — 出題されそうな問題を予測する</title>
+<link rel="icon" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0D0F14;
+  --surface: #161920;
+  --surface2: #1E222E;
+  --border: #2A2F3E;
+  --accent: #7B68EE;
+  --accent-glow: rgba(123,104,238,0.25);
+  --accent-dim: #4B45A8;
+  --text: #E8EAF0;
+  --text-muted: #7A7F96;
+  --text-dim: #4A4F66;
+  --green: #34D399;
+  --yellow: #FBBF24;
+  --red: #F87171;
+  --orange: #FB923C;
+  --card-radius: 14px;
+  --font-en: 'Space Grotesk', sans-serif;
+  --font-ja: 'Noto Sans JP', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ja);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Background grid */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(123,104,238,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(123,104,238,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+/* ── Header ── */
+.header {
+  text-align: center;
+  margin-bottom: 44px;
+}
+
+.logo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(123,104,238,0.12);
+  border: 1px solid rgba(123,104,238,0.3);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12px;
+  color: #A89CF5;
+  font-family: var(--font-en);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-bottom: 18px;
+}
+
+.logo-badge::before {
+  content: '';
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+h1 {
+  font-family: var(--font-en);
+  font-size: clamp(28px, 6vw, 42px);
+  font-weight: 700;
+  letter-spacing: -1px;
+  background: linear-gradient(135deg, #E8EAF0 0%, #A89CF5 60%, #7B68EE 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.15;
+  margin-bottom: 10px;
+}
+
+.tagline {
+  font-size: 15px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ── Form card ── */
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: 28px;
+  margin-bottom: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+}
+
+select, textarea {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-ja);
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+select {
+  height: 42px;
+  padding: 0 12px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A7F96' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+select option { background: var(--surface2); }
+
+textarea {
+  height: 160px;
+  padding: 12px 14px;
+  resize: vertical;
+  line-height: 1.7;
+}
+
+textarea::placeholder { color: var(--text-dim); font-size: 13px; }
+
+.field-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+.char-count {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  font-family: var(--font-en);
+}
+
+/* ── Generate button ── */
+.btn-generate {
+  width: 100%;
+  height: 52px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-family: var(--font-ja);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(123,104,238,0.3);
+}
+
+.btn-generate::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  transition: left 0.5s;
+}
+
+.btn-generate:hover::before { left: 100%; }
+.btn-generate:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(123,104,238,0.4); }
+.btn-generate:active { transform: scale(0.99); }
+.btn-generate:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ── Loading ── */
+.loading-wrap {
+  display: none;
+  text-align: center;
+  padding: 48px 20px;
+}
+
+.loading-wrap.visible { display: block; }
+
+.spinner {
+  width: 44px; height: 44px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-text {
+  font-size: 14px;
+  color: var(--text-muted);
+  animation: fadeText 2s ease-in-out infinite;
+}
+
+@keyframes fadeText {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ── Results ── */
+.results-wrap {
+  display: none;
+  animation: fadeUp 0.4s ease;
+}
+
+.results-wrap.visible { display: block; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.results-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.results-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+.subject-tag {
+  background: rgba(123,104,238,0.15);
+  border: 1px solid rgba(123,104,238,0.25);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #A89CF5;
+  font-weight: 600;
+}
+
+.btn-copy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-ja);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.btn-copy:hover {
+  background: rgba(123,104,238,0.12);
+  border-color: rgba(123,104,238,0.3);
+  color: #A89CF5;
+}
+
+/* ── Question cards ── */
+.q-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.q-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp 0.3s ease both;
+}
+
+.q-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+}
+
+.q-card.rank-1::before { background: var(--red); }
+.q-card.rank-2::before { background: var(--orange); }
+.q-card.rank-3::before { background: var(--yellow); }
+.q-card.rank-4::before, .q-card.rank-5::before { background: var(--accent); }
+
+.q-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.q-num {
+  font-family: var(--font-en);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 4px 8px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.q-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.5;
+  flex: 1;
+}
+
+.importance-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.star {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.star.lit { color: var(--yellow); }
+
+.q-body {
+  padding-left: 44px;
+}
+
+.q-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin-bottom: 10px;
+}
+
+.q-answer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: var(--font-ja);
+  padding: 4px 0;
+  transition: color 0.15s;
+}
+
+.q-answer-toggle:hover { color: #A89CF5; }
+.q-answer-toggle svg { transition: transform 0.2s; }
+.q-answer-toggle.open svg { transform: rotate(90deg); }
+
+.q-answer {
+  display: none;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: rgba(123,104,238,0.07);
+  border: 1px solid rgba(123,104,238,0.15);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.7;
+}
+
+.q-answer.visible { display: block; animation: fadeUp 0.2s ease; }
+
+/* ── Importance badge ── */
+.importance-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.imp-high { background: rgba(248,113,113,0.12); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+.imp-mid  { background: rgba(251,191,36,0.1);  color: var(--yellow); border: 1px solid rgba(251,191,36,0.2); }
+.imp-low  { background: rgba(123,104,238,0.1); color: #A89CF5; border: 1px solid rgba(123,104,238,0.2); }
+
+/* ── History ── */
+.history-section {
+  margin-top: 36px;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hist-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.hist-item:hover {
+  border-color: rgba(123,104,238,0.3);
+  background: rgba(123,104,238,0.04);
+}
+
+.hist-subject { font-size: 13px; font-weight: 700; color: #A89CF5; min-width: 60px; }
+.hist-grade { font-size: 12px; color: var(--text-muted); min-width: 40px; }
+.hist-preview { font-size: 12px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-date { font-size: 11px; color: var(--text-dim); font-family: var(--font-en); flex-shrink: 0; }
+.hist-del { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 16px; padding: 2px 4px; transition: color 0.15s; flex-shrink: 0; }
+.hist-del:hover { color: var(--red); }
+
+/* ── Upsell ── */
+.upsell {
+  margin-top: 36px;
+  background: linear-gradient(135deg, rgba(123,104,238,0.08) 0%, rgba(75,69,168,0.05) 100%);
+  border: 1px solid rgba(123,104,238,0.2);
+  border-radius: var(--card-radius);
+  padding: 22px 24px;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.upsell-icon {
+  width: 46px; height: 46px;
+  background: rgba(123,104,238,0.15);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.upsell-body { flex: 1; min-width: 140px; }
+.upsell-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.upsell-sub { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+.upsell-cta {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+  border: none;
+  border-radius: 9px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--font-ja);
+  white-space: nowrap;
+  transition: transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 3px 14px rgba(123,104,238,0.3);
+}
+
+.upsell-cta:hover { transform: translateY(-1px); }
+
+/* ── Error ── */
+.error-box {
+  display: none;
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.2);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--red);
+  margin-top: 14px;
+  line-height: 1.6;
+}
+
+.error-box.visible { display: block; }
+
+/* ── Footer ── */
+footer {
+  text-align: center;
+  margin-top: 48px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.8;
+}
+
+footer a { color: var(--text-dim); text-decoration: underline; }
+
+/* ── Responsive ── */
+@media (max-width: 520px) {
+  .form-row { grid-template-columns: 1fr; }
+  .upsell { flex-direction: column; }
+}
+</style>
+<meta name="google-site-verification" content="PtNXtHNJ1onKPC1eeYMaPB9YyMU9htPlIyij8cX_oaw" />
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-badge">✦ AI-Powered · テスト対策</div>
+    <h1>テスト予測AI</h1>
+    <p class="tagline">ノートや教科書の文章を貼り付けると、<br>出題されやすい問題をAIが予測します</p>
+  </div>
+
+  <!-- Form -->
+  <div class="form-card">
+    <div class="form-row">
+      <div class="field">
+        <label>科目</label>
+        <select id="sel-subject">
+          <option value="数学">数学</option>
+          <option value="英語">英語</option>
+          <option value="理科">理科</option>
+          <option value="社会">社会</option>
+          <option value="国語">国語</option>
+          <option value="生物">生物</option>
+          <option value="化学">化学</option>
+          <option value="物理">物理</option>
+          <option value="歴史">歴史</option>
+          <option value="地理">地理</option>
+          <option value="公民">公民</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>学年</label>
+        <select id="sel-grade">
+          <option value="中1">中学1年</option>
+          <option value="中2">中学2年</option>
+          <option value="中3">中学3年</option>
+          <option value="高1">高校1年</option>
+          <option value="高2">高校2年</option>
+          <option value="高3">高校3年</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field" style="margin-bottom:16px">
+      <label>授業ノート・教科書の内容</label>
+      <textarea id="ta-notes" placeholder="例：
+細胞の構造について
+・核：DNAが存在し、遺伝情報を持つ
+・細胞膜：物質の出入りを調節する半透膜
+・ミトコンドリア：エネルギーを生産するATPを合成する
+・葉緑体：光合成を行う、植物細胞のみに存在
+
+先生がここを「重要」と言っていた内容も書くとより精度が上がります"></textarea>
+      <div class="char-count"><span id="char-count">0</span> / 3000文字</div>
+      <div class="field-hint">💡 授業ノート・教科書のコピー・先生が「ここが大事」と言った内容を貼り付けてください</div>
+    </div>
+
+    <button class="btn-generate" id="btn-gen" onclick="generate()">
+      ✦ 出題予測を生成する
+    </button>
+    <div class="error-box" id="error-box"></div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-wrap" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">AIが問題を分析中…</div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-wrap" id="results">
+    <div class="results-header">
+      <div class="results-meta">
+        <span class="results-title">出題予測</span>
+        <span class="subject-tag" id="res-tag">理科</span>
+      </div>
+      <button class="btn-copy" onclick="copyResults()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        コピー
+      </button>
+    </div>
+    <div class="q-list" id="q-list"></div>
+  </div>
+
+  <!-- History -->
+  <div class="history-section" id="history-section" style="display:none">
+    <div class="section-label">📂 最近の予測履歴</div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+
+  <!-- Upsell -->
+  <div class="upsell">
+    <div class="upsell-icon">📊</div>
+    <div class="upsell-body">
+      <div class="upsell-title">プレミアムプラン（準備中）</div>
+      <div class="upsell-sub">履歴の無制限保存 · 暗記カード自動生成 · 科目別出題傾向グラフ · リマインダー通知</div>
+    </div>
+    <button class="upsell-cta" onclick="showPremiumAlert()">¥480/月で先行登録</button>
+  </div>
+
+  <footer>
+    <p>テスト予測AI · 個人開発者による試験対策ツール</p>
+    <p style="margin-top:4px">フィードバックは <a href="https://docs.google.com/forms/d/e/1FAIpQLSeXzfqQ7pS4Q4oUjqT_F1t-gdb1BrDxvddfhZ6pJNrJutZXTw/viewform?usp=publish-editor" target="_blank">こちら</a> から受け付けています</p>
+  </footer>
+
+</div>
+
+<script>
+// ── State ──
+const STORAGE_KEY = 'exam_predictor_v1';
+let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let currentResult = null;
+
+// ── Loading messages ──
+const loadingMessages = [
+  'AIがノートを読み込み中…',
+  '出題パターンを分析中…',
+  '重要度を計算中…',
+  'ヒントを生成中…',
+  'もうすぐ完了です…',
+];
+
+// ── Textarea char count ──
+document.getElementById('ta-notes').addEventListener('input', function () {
+  const len = this.value.length;
+  document.getElementById('char-count').textContent = len;
+  if (len > 3000) this.value = this.value.slice(0, 3000);
+});
+
+// ── Main generate function ──
+async function generate() {
+  const subject = document.getElementById('sel-subject').value;
+  const grade   = document.getElementById('sel-grade').value;
+  const notes   = document.getElementById('ta-notes').value.trim();
+  const errBox  = document.getElementById('error-box');
+
+  errBox.classList.remove('visible');
+
+  if (notes.length < 30) {
+    errBox.textContent = '⚠ ノートの内容が短すぎます。最低30文字以上入力してください。';
+    errBox.classList.add('visible');
+    return;
+  }
+
+  // UI state
+  document.getElementById('btn-gen').disabled = true;
+  document.getElementById('loading').classList.add('visible');
+  document.getElementById('results').classList.remove('visible');
+
+  // Animate loading messages
+  let msgIdx = 0;
+  const msgEl = document.getElementById('loading-text');
+  const msgTimer = setInterval(() => {
+    msgIdx = (msgIdx + 1) % loadingMessages.length;
+    msgEl.textContent = loadingMessages[msgIdx];
+  }, 1800);
+
+  try {
+    const prompt = buildPrompt(subject, grade, notes);
+    const data = await callClaude(prompt);
+
+    clearInterval(msgTimer);
+    document.getElementById('loading').classList.remove('visible');
+    document.getElementById('btn-gen').disabled = false;
+
+    const text = data.content.map(b => b.text || '').join('');
+    let parsed;
+    try {
+      const clean = text.replace(/```json|```/g, '').trim();
+      parsed = JSON.parse(clean);
+    } catch {
+      throw new Error('AIの回答を解析できませんでした。もう一度お試しください。');
+    }
+
+    currentResult = { subject, grade, questions: parsed.questions, notes: notes.slice(0, 100), date: todayStr() };
+    saveToHistory(currentResult);
+    renderResults(subject, parsed.questions);
+    renderHistory();
+
+  } catch (err) {
+    clearInterval(msgTimer);
+    document.getElementById('loading').classList.remove('visible');
+    document.getElementById('btn-gen').disabled = false;
+    errBox.textContent = '❌ ' + (err.message || 'エラーが発生しました。もう一度試してください。');
+    errBox.classList.add('visible');
+  }
+}
+
+// ── Build prompt ──
+function buildPrompt(subject, grade, notes) {
+  return `あなたは日本の${grade}の${subject}の定期テスト出題予測の専門家です。
+以下の授業ノート・教科書内容を分析し、定期テストで出題されそうな問題をJSON形式で5つ予測してください。
+
+【授業ノート・教科書内容】
+${notes}
+
+必ずこのJSONフォーマットだけを返してください（前置き・コードブロック不要）:
+{
+  "questions": [
+    {
+      "rank": 1,
+      "question": "問題文（具体的に）",
+      "importance": "最重要",
+      "hint": "なぜ出やすいか・どう勉強すべきか（1〜2文）",
+      "answer": "模範解答（簡潔に）"
+    }
+  ]
+}
+
+ルール：
+- importanceは「最重要」「重要」「標準」のいずれか
+- rank 1〜2は「最重要」、rank 3は「重要」、rank 4〜5は「標準」
+- 問題は具体的な試験形式（穴埋め、記述、選択など）
+- 実際に試験に出そうなものだけを選ぶ
+- JSONのみ返す。余計な文章は一切不要。`;
+}
+
+// ── Call Groq API ──
+async function callClaude(prompt) {
+  process.env.GROQ_API_KEY
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `APIエラー: ${res.status}`);
+  }
+  const data = await res.json();
+  return {
+    content: [{ text: data.choices[0].message.content }]
+  };
+}
+
+// ── Render results ──
+function renderResults(subject, questions) {
+  document.getElementById('res-tag').textContent = subject;
+  const list = document.getElementById('q-list');
+
+  const impClass = imp => imp === '最重要' ? 'imp-high' : imp === '重要' ? 'imp-mid' : 'imp-low';
+  const stars = imp => {
+    const n = imp === '最重要' ? 3 : imp === '重要' ? 2 : 1;
+    return [1,2,3].map(i => `<span class="star${i<=n?' lit':''}">★</span>`).join('');
+  };
+
+  list.innerHTML = questions.map((q, i) => `
+    <div class="q-card rank-${q.rank}" style="animation-delay:${i*0.07}s">
+      <div class="q-card-header">
+        <span class="q-num">Q${q.rank}</span>
+        <span class="q-title">${escHtml(q.question)}</span>
+        <span class="importance-badge ${impClass(q.importance)}">${q.importance}</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">${escHtml(q.hint)}</div>
+        <button class="q-answer-toggle" id="toggle-${i}" onclick="toggleAnswer(${i})">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          模範解答を見る
+        </button>
+        <div class="q-answer" id="ans-${i}">${escHtml(q.answer)}</div>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('results').classList.add('visible');
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function toggleAnswer(i) {
+  const btn = document.getElementById(`toggle-${i}`);
+  const ans = document.getElementById(`ans-${i}`);
+  const open = ans.classList.toggle('visible');
+  btn.classList.toggle('open', open);
+  btn.childNodes[btn.childNodes.length - 1].textContent = open ? '模範解答を閉じる' : '模範解答を見る';
+}
+
+// ── Copy ──
+function copyResults() {
+  const cards = document.querySelectorAll('.q-card');
+  const subject = document.getElementById('res-tag').textContent;
+  let text = `【${subject}】テスト予測問題\n\n`;
+  cards.forEach((card, i) => {
+    const q = card.querySelector('.q-title').textContent;
+    const imp = card.querySelector('.importance-badge').textContent;
+    const hint = card.querySelector('.q-hint').textContent;
+    text += `Q${i+1} [${imp}]\n${q}\n💡 ${hint}\n\n`;
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.btn-copy');
+    btn.textContent = '✓ コピーしました';
+    setTimeout(() => { btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> コピー'; }, 2000);
+  });
+}
+
+// ── History ──
+function saveToHistory(item) {
+  history.unshift({ ...item, id: Date.now() });
+  if (history.length > 10) history = history.slice(0, 10);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+function renderHistory() {
+  if (!history.length) {
+    document.getElementById('history-section').style.display = 'none';
+    return;
+  }
+  document.getElementById('history-section').style.display = 'block';
+  document.getElementById('history-list').innerHTML = history.map(h => `
+    <div class="hist-item" onclick="loadHistory(${h.id})">
+      <span class="hist-subject">${h.subject}</span>
+      <span class="hist-grade">${h.grade}</span>
+      <span class="hist-preview">${escHtml(h.notes)}…</span>
+      <span class="hist-date">${h.date}</span>
+      <button class="hist-del" onclick="event.stopPropagation(); deleteHistory(${h.id})">×</button>
+    </div>
+  `).join('');
+}
+
+function loadHistory(id) {
+  const item = history.find(h => h.id === id);
+  if (!item) return;
+  document.getElementById('sel-subject').value = item.subject;
+  document.getElementById('sel-grade').value = item.grade;
+  renderResults(item.subject, item.questions);
+}
+
+function deleteHistory(id) {
+  history = history.filter(h => h.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  renderHistory();
+}
+
+// ── Utils ──
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+}
+
+function showPremiumAlert() {
+  alert('プレミアムプランは近日公開予定です！\nフィードバックフォームからメールアドレスを登録すると、公開時に通知します。');
+}
+
+// ── Enter key submit ──
+document.getElementById('ta-notes').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) generate();
+});
+
+// ── Init ──
+renderHistory();
+</script>
+</body>
+</html>
