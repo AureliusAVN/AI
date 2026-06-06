@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>テスト予測AI — 出題されそうな問題を予測する</title>
 <link rel="icon" href="assets/icon.png">
-<meta name="google-site-verification" content="OMOrnxrB9NzMbtOIPMEKuqSPOYSQAk3vMl1bPmsHOHw" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -789,26 +788,29 @@ ${notes}
 
 // ── Call Groq API ──
 async function callClaude(prompt) {
-  process.env.GROQ_API_KEY
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+
+  const res = await fetch('/api/generate', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+      prompt
+    })
   });
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `APIエラー: ${res.status}`);
+    throw new Error('APIエラー');
   }
+
   const data = await res.json();
+
   return {
-    content: [{ text: data.choices[0].message.content }]
+    content: [
+      {
+        text: data.choices[0].message.content
+      }
+    ]
   };
 }
 
